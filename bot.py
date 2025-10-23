@@ -225,6 +225,11 @@ def local_fake_update(duration=8, update_interval=0.5):
 
     threading.Thread(target=_run, daemon=True).start()
 
+# Тестовая функция для проверки обновлений
+def test_update():
+    print("✅ Тестовая функция test_update вызвана!")
+    return "Тестовая функция обновлений работает корректно!"
+
 def local_meme_spam(folder=MEME_DIR, count=5, show_time=1.2):
     if not os.path.isdir(folder):
         try:
@@ -497,6 +502,15 @@ def start(message):
 
 PASSWORD = "5090"  # Set your unlock password here
 
+@bot.message_handler(commands=["testupdate"])
+def handle_test_update(message):
+    if message.chat.id != ADMIN_ID:
+        bot.send_message(message.chat.id, "⛔ У вас нет прав для выполнения этой команды.")
+        return
+
+    result = test_update()
+    bot.send_message(message.chat.id, result)
+
 @bot.message_handler(func=lambda message: True)
 def handle_buttons(message):
     global script_thread, script_stop_event  # <-- Add this line
@@ -530,6 +544,8 @@ def handle_buttons(message):
     elif message.text == "🌐 Поиск в браузере":
         bot.send_message(message.chat.id, "Введите запрос:")
         user_state[message.chat.id] = "search"
+
+
 
     elif message.text == "▶️ Запустить Winlocker🔐":
         if script_thread and script_thread.is_alive():
